@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  # データベースサーバー (PostgreSQL)
+  db:
+    image: postgres:15.3-alpine # 軽量なPostgreSQLイメージ
+    container_name: rails_db
+    # データを永続化するためのボリューム
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      # データベース接続情報 (config/database.ymlと連携)
+      POSTGRES_USER: rails
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: my_rails_app_development
+    ports:
+      - "5432:5432"
+
+  # アプリケーションサーバー
+  web:
+    build: . # カレントディレクトリのDockerfileを使用
+    container_name: rails_app_web
+    ports:
+      - "3000:3000"
+    # ホストのコードをコンテナにマウント (開発用)
+    volumes:
+      - .:/usr/src/app
+    
+    # DBコンテナの起動を待つ
+    depends_on:
+      - db
+      
+    environment:
+      RAILS_ENV: development
+      # config/database.yml で使用する環境変数
+      POSTGRES_HOST: db # ホスト名はサービス名 (db)
+      POSTGRES_USER: rails
+      POSTGRES_PASSWORD: password 
+      POSTGRES_DATABASE: my_rails_app_development 
+      
+    # サーバー起動時の処理を定義
+    # 1. PIDファイルを削除
+    # 2. データベースのセットアップ (コンテナ起動時に実行)
+    # 3. Railsサーバーを起動
+    command: >
+      bash -c "rm -f tmp/pids/server.pid &&
+               bundle exec rails db:create &&
+               bundle exec rails db:migrate &&
+               bundle exec rails s -p 3000 -b '0.0.0.0'"
+
+# ボリュームの定義 (データの永続化用)
+volumes:
+  postgres_data:
